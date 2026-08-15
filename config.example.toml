@@ -1,0 +1,67 @@
+# Example configuration for `watcher`. Copy to config.toml and adjust.
+
+[provider]
+type = "parameter_store"             # only supported value currently
+
+[provider.parameter_store]
+region = "us-east-1"                 # optional; falls back to the standard AWS SDK
+                                      # credential/region resolution (env vars, profile,
+                                      # instance/task role) if omitted
+prefix = "/myapp/prod"               # required, must start with "/" -- only parameters
+                                      # under this path are synced
+decrypt = true                       # decrypt SecureString values to plaintext on disk
+                                      # (default true; the sync daemon then needs
+                                      # kms:Decrypt on the key used -- see docs/iam.md)
+
+[destination]
+root = "/var/lib/watcher/params"     # required, absolute. One file per parameter,
+                                      # mirroring its SSM path under this root, e.g.
+                                      # /myapp/prod/db/password -> <root>/myapp/prod/db/password
+dir_perm = "0700"
+file_perm = "0600"
+
+[state]
+path = "/var/lib/watcher/state.json" # required. Tracks a hash/version per parameter so
+                                      # the daemon can tell a real change from a no-op.
+
+[full_sync]
+interval = "5m"                      # required, minimum 30s. Periodic reconciliation
+                                      # pass, independent of event-driven sync below.
+
+[event_sync]
+enabled = true
+queue_url = ""                       # required if enabled=true. Fill this in with the
+                                      # Queue URL printed by `watcher setup`.
+wait_time_seconds = 20                # SQS long-poll wait (max 20)
+max_messages = 10                     # SQS max messages per receive (max 10)
+visibility_timeout = 30
+
+[on_change]
+# Command to run whenever a real change is applied, from either sync path. Leave empty
+# to disable. Runs via `sh -c`. Gets WATCHER_CHANGED_PARAMS (comma-joined parameter
+# names) and WATCHER_CHANGED_COUNT in its environment, plus anything in [on_change.env].
+command = "/usr/local/bin/reload-app.sh"
+workdir = ""
+timeout = "30s"
+debounce = "2s"                       # coalesces a burst of rapid changes (e.g. several
+                                       # SQS messages arriving close together) into one run
+
+[on_change.env]
+# EXTRA_VAR = "value"
+
+# Only read by `watcher setup`, not by `watcher sync`.
+[setup]
+queue_name = "watcher-ssm-events"
+event_bus_name = "default"
+rule_name = "watcher-ssm-parameter-change"
+visibility_timeout = 30
+message_retention_seconds = 345600    # 4 days
+
+[setup.dlq]
+enabled = false
+queue_name = "watcher-ssm-events-dlq"
+max_receive_count = 5
+
+[log]
+level = "info"                        # trace|debug|info|warn|error
+format = "text"                       # text|json

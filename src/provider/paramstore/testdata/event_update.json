@@ -1,0 +1,15 @@
+{
+  "version": "0",
+  "id": "11111111-2222-3333-4444-555555555556",
+  "detail-type": "Parameter Store Change",
+  "source": "aws.ssm",
+  "account": "123456789012",
+  "time": "2026-08-15T12:05:00Z",
+  "region": "us-east-1",
+  "resources": ["arn:aws:ssm:us-east-1:123456789012:parameter/myapp/prod/db/password"],
+  "detail": {
+    "name": "/myapp/prod/db/password",
+    "type": "SecureString",
+    "operation": "Update"
+  }
+}
